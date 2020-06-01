@@ -11,109 +11,115 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.transaction.UserTransaction;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Request;
+import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 
-/**
- * Servlet implementation class AccountController
- */
-@WebServlet("/AccountController")
-public class AccountController extends HttpServlet {
-	private static final long serialVersionUID = 1L;
-	@EJB private BranchLocal branch;
-	
-	@Resource UserTransaction utx; // To handle user transactions from a Web component
-    /**
-     * @see HttpServlet#HttpServlet()
-     */
-    public AccountController() {
-        super();
-        // TODO Auto-generated constructor stub
-    }
+@Consumes("text/plain")
+@Produces("text/plain")
+@Path("/accounts")
+public class AccountController  {
 
-	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
-	 */
-	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		// TODO Auto-generated method stub
-		String action = request.getParameter("operation");
-		int accountNum; double amount; int secondAccountNum;
-		String firstName, lastName, cf; 
-		String message = "";
-		switch (action) {
-			case "deposit":
-				try {
-					accountNum = Integer.parseInt(request.getParameter("account"));
-					amount = Double.parseDouble(request.getParameter("amount"));
-				
-					branch.deposit(accountNum, amount);
-					message = "L'importo " + amount + " è stato accredidato";
-				} catch (Exception e) {
-					message = "L'importo non può essere accreditato";
-				}
-				break;
-			case "withdraw":
-				try {
-					accountNum = Integer.parseInt(request.getParameter("account"));
-					amount = Double.parseDouble(request.getParameter("amount"));
-				
-					branch.withdraw(accountNum, amount);
-					message = "L'importo " + amount + " è stato addebitato";
-				} catch (Exception e) {
-					message = "L'importo non può essere addebitato";
-				}
-				break;
-			case "createAccount":
-				try {
-					cf = request.getParameter("cf"); 
-					amount = Double.parseDouble(request.getParameter("amount"));
-				
-					int num = branch.createAccount(cf, amount);
-					message = "Il conto è stato creato ed ha il seguente numero " + num;
-				} catch (Exception e) {	
-					message = "Non è possibile creare il conto" + e;
-				}	
-				break;
-			case "allCustomerAccounts":
-				try {
-					
-					cf = request.getParameter("cf");
-					List<Account> accounts = branch.getAccounts(cf);
-					System.out.println(accounts);
-					if (accounts != null)
-						for (Account item: accounts) {
-							Account a = item;
-							message += "Conto N. " + a.getNumber() + " saldo " + a.getBalance() + "\n"; 
-						}
-					else message ="Nessun conto disponibile";
-					
-				} catch (Exception e) {
-						message = "Codice fiscale errato "+ e;
-				}
-				break;
-			case "transfer":
-				try {
-					accountNum = Integer.parseInt(request.getParameter("account1"));
-					secondAccountNum = Integer.parseInt(request.getParameter("account2"));
-					amount = Double.parseDouble(request.getParameter("amount"));
-				
-				    utx.begin();
-					branch.withdraw(accountNum, amount);
-					branch.deposit(secondAccountNum, amount);
-				    utx.commit();
-				    message = "Trasferimento di " + amount + " euro dal conto " + accountNum + " al conto " + secondAccountNum +" avvenuto con successo";
-				} catch (Exception e) {
-					try { utx.rollback(); message = "Trasferimento non possibile";
-					} catch (Exception ee) {}
-					
-				}
-				break;
-			default:
-				message = "Operazione non supportata";
-				break;
-		}	
-		
-		response.getWriter().print(message);
+	@EJB
+	private BranchLocal branch;
+
+	@Resource UserTransaction utx; // To handle user transactions from a Web component
+
+
+	public AccountController() {
+		super();
+
 	}
 
+	@GET
+	public Response test() {
+		System.out.println("test");
+		try {
+			branch.getAccount(1);
+			return Response.ok().build();
+		} catch (Exception e) {return Response.status(500).build();}
+
+	}
+
+	@POST
+	@Path("/{accountId}/deposits")
+	public Response deposit(@PathParam("accountId") int accountNum, double amount) {
+		try {
+
+			branch.deposit(accountNum, amount);
+
+			return Response.ok().build();
+		} catch (Exception e) {
+			System.out.println(e);
+			return Response.status(500).build();
+		}
+	}
+
+
+	@POST
+	@Path("/{accountId}/withdraws")
+	public Response withdraw(@PathParam("accountId") int accountNum, double amount) {
+		try {
+			branch.withdraw(accountNum, amount);
+
+			return Response.ok().build();
+		} catch (Exception e) {
+			System.out.println(e);
+			return Response.status(500).build();
+		}
+	}
+
+	@GET
+	@Path("/{accountId}/")
+	public Response getBalance(@PathParam("accountId") int accountNum) {
+		Account a = branch.getAccount(accountNum);
+
+		try {
+			return Response.ok(a.getBalance()).lastModified(a.getLastModified()).build();
+		} catch (Exception e) {
+			return Response.status(500).build();
+		}
+	}
+
+	@PUT
+	@Path("/{accountId}/")
+	public Response setBalance(@PathParam("accountId") int accountNum, double amount, @Context Request request) {
+		Account a = branch.getAccount(accountNum);
+		Response.ResponseBuilder builder = null;
+		try {
+			builder = request.evaluatePreconditions(a.getLastModified());
+			if (builder != null) {
+				branch.getAccount(accountNum).setBalance(amount);
+			}
+			return builder.status(204).build();
+
+		} catch (Exception e) {
+			return builder.status(500).build();
+		}
+	}
+
+	@POST
+	@Path("/")
+	public Response createAccount(@QueryParam("cf") String custCF, double amount) {
+		try {
+			return Response.created(new URI("/accounts/"+branch.createAccount(custCF, amount))).build();
+		} catch (Exception e) {
+			return Response.status(500).build();
+		}
+	}
+
+	@POST
+	@Path("/transfers")
+	public Response transfer(@QueryParam("source") int srcAccount, @QueryParam("destination") int dstAccount, double amount) {
+		try {
+
+			return Response.ok().build();
+		} catch (Exception e) {
+			return Response.status(500).build();
+		}
+	}
 }
