@@ -25,7 +25,7 @@ public class Branch implements BranchLocal {
     public double totalAmount() {
     	List<Account> l = em.createNamedQuery("Account.findAllPositiveAmounts", Account.class).getResultList();
     	double total = 0;
-    	for (int i = 0; i < l.size(); i++) 
+    	for (int i = 0; i < l.size(); i++)
     	    total+=l.get(i).getBalance();
     	return total;
     }
@@ -49,6 +49,7 @@ public class Branch implements BranchLocal {
 
 
     public Account getAccount(int num) {
+    	System.out.println("sono in get account");
     	return em.find(Account.class, num);
     }
     

@@ -5,6 +5,7 @@ import it.unisannio.service.BranchLocal;
 
 import javax.annotation.Resource;
 import javax.ejb.EJB;
+import javax.transaction.SystemException;
 import javax.transaction.UserTransaction;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
@@ -25,17 +26,6 @@ public class AccountController  {
 
 	public AccountController() {
 		super();
-
-	}
-
-	@GET
-	public Response test() {
-		System.out.println("test");
-		try {
-			branch.getAccount(1);
-			return Response.ok().build();
-		} catch (Exception e) {return Response.status(500).build();}
-
 	}
 
 	@POST
@@ -58,7 +48,6 @@ public class AccountController  {
 	public Response withdraw(@PathParam("accountId") int accountNum, double amount) {
 		try {
 			branch.withdraw(accountNum, amount);
-
 			return Response.ok().build();
 		} catch (Exception e) {
 			System.out.println(e);
@@ -70,7 +59,7 @@ public class AccountController  {
 	@Path("/{accountId}/")
 	public Response getBalance(@PathParam("accountId") int accountNum) {
 		Account a = branch.getAccount(accountNum);
-
+		if(a == null) return Response.status(404).build();
 		try {
 			return Response.ok(a.getBalance()).lastModified(a.getLastModified()).build();
 		} catch (Exception e) {
@@ -86,10 +75,12 @@ public class AccountController  {
 		try {
 			builder = request.evaluatePreconditions(a.getLastModified());
 			if (builder != null) {
+				utx.begin();
 				branch.getAccount(accountNum).setBalance(amount);
+				utx.commit();
+				return builder.status(204).build();
 			}
-			return builder.status(204).build();
-
+			return Response.status(412).build();
 		} catch (Exception e) {
 			return builder.status(500).build();
 		}
@@ -109,9 +100,17 @@ public class AccountController  {
 	@Path("/transfers")
 	public Response transfer(@QueryParam("source") int srcAccount, @QueryParam("destination") int dstAccount, double amount) {
 		try {
-
+			utx.begin();
+			branch.getAccount(srcAccount).withdraw(amount);
+			branch.getAccount(dstAccount).deposit(amount);
+			utx.commit();
 			return Response.ok().build();
 		} catch (Exception e) {
+			try {
+				utx.rollback();
+			} catch (SystemException ex) {
+				ex.printStackTrace();
+			}
 			return Response.status(500).build();
 		}
 	}
