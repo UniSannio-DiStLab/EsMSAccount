@@ -42,6 +42,7 @@ public class Branch implements BranchLocal {
 
     public int createAccount(String cf, double am) {
     	//Customer cust = em.find(Customer.class, cf);
+		//Transaction
 		Account a = new Account(cf, am);
 		em.persist(a);
 		return a.getNumber();
