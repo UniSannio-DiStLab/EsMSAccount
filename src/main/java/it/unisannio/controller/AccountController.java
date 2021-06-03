@@ -56,7 +56,7 @@ public class AccountController  {
 	}
 
 	@GET
-	@Path("/{accountId}/")
+	@Path("/{accountId}/balance")
 	public Response getBalance(@PathParam("accountId") int accountNum) {
 		Account a = branch.getAccount(accountNum);
 		if(a == null) return Response.status(404).build();
@@ -68,7 +68,7 @@ public class AccountController  {
 	}
 
 	@PUT
-	@Path("/{accountId}/")
+	@Path("/{accountId}/balance")
 	public Response setBalance(@PathParam("accountId") int accountNum, double amount, @Context Request request) {
 		Account a = branch.getAccount(accountNum);
 		Response.ResponseBuilder builder = null;
