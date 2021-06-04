@@ -12,6 +12,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import java.net.URI;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 
 @Consumes("text/plain")
 @Produces("text/plain")
@@ -73,7 +75,8 @@ public class AccountController  {
 		Account a = branch.getAccount(accountNum);
 		Response.ResponseBuilder builder = null;
 		try {
-			builder = request.evaluatePreconditions(a.getLastModified());
+			//Workaround since we use Java8
+			builder = request.evaluatePreconditions(Date.from(a.getLastModified().toInstant().truncatedTo(ChronoUnit.SECONDS)));
 			if (builder == null) {
 				utx.begin();
 				branch.getAccount(accountNum).setBalance(amount);
